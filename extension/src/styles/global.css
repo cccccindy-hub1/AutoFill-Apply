@@ -1,0 +1,432 @@
+/* ============================================================
+   CampusApply Agent - 全局样式 V2
+   升级亮点：暗色模式 / 玻璃拟态 / 微动效 / Google Fonts
+   ============================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+:root {
+  /* 品牌色 - 紫蓝渐变系 */
+  --ca-primary: #6366f1;
+  --ca-primary-hover: #4f46e5;
+  --ca-primary-light: rgba(99, 102, 241, 0.08);
+  --ca-primary-glow: rgba(99, 102, 241, 0.25);
+  --ca-accent: #818cf8;
+  --ca-accent-2: #a78bfa;
+
+  /* 语义色 */
+  --ca-success: #22c55e;
+  --ca-success-light: #dcfce7;
+  --ca-warning: #f59e0b;
+  --ca-warning-light: #fef3c7;
+  --ca-danger: #ef4444;
+  --ca-danger-light: #fee2e2;
+
+  /* 表面色 */
+  --ca-bg: #f1f5f9;
+  --ca-bg-card: #ffffff;
+  --ca-bg-elevated: rgba(255, 255, 255, 0.85);
+  --ca-bg-glass: rgba(255, 255, 255, 0.6);
+
+  /* 文字色 */
+  --ca-text: #0f172a;
+  --ca-text-secondary: #475569;
+  --ca-text-muted: #94a3b8;
+
+  /* 边框 */
+  --ca-border: #e2e8f0;
+  --ca-border-focus: #6366f1;
+
+  /* 圆角 */
+  --ca-radius: 8px;
+  --ca-radius-lg: 12px;
+  --ca-radius-xl: 16px;
+
+  /* 阴影 */
+  --ca-shadow: 0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
+  --ca-shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.07), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
+  --ca-shadow-lg: 0 10px 25px -5px rgba(0, 0, 0, 0.08), 0 4px 6px -4px rgba(0, 0, 0, 0.04);
+  --ca-shadow-glow: 0 0 20px rgba(99, 102, 241, 0.15);
+
+  /* 动效 */
+  --ca-transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  --ca-transition-slow: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* 渐变 */
+  --ca-gradient-primary: linear-gradient(135deg, #6366f1 0%, #818cf8 50%, #a78bfa 100%);
+  --ca-gradient-header: linear-gradient(135deg, #312e81 0%, #4338ca 40%, #6366f1 100%);
+  --ca-gradient-card: linear-gradient(180deg, rgba(255,255,255,1) 0%, rgba(248,250,252,1) 100%);
+}
+
+/* 暗色模式 */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --ca-bg: #0f172a;
+    --ca-bg-card: #1e293b;
+    --ca-bg-elevated: rgba(30, 41, 59, 0.9);
+    --ca-bg-glass: rgba(30, 41, 59, 0.7);
+    --ca-text: #f1f5f9;
+    --ca-text-secondary: #94a3b8;
+    --ca-text-muted: #64748b;
+    --ca-border: #334155;
+    --ca-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+    --ca-shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.4);
+    --ca-shadow-lg: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
+    --ca-gradient-card: linear-gradient(180deg, rgba(30,41,59,1) 0%, rgba(15,23,42,1) 100%);
+    --ca-primary-light: rgba(99, 102, 241, 0.15);
+    --ca-success-light: rgba(34, 197, 94, 0.15);
+    --ca-warning-light: rgba(245, 158, 11, 0.15);
+    --ca-danger-light: rgba(239, 68, 68, 0.15);
+  }
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei',
+    'Helvetica Neue', sans-serif;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--ca-text);
+  background: var(--ca-bg);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* =================== 按钮 =================== */
+
+.ca-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border: none;
+  border-radius: var(--ca-radius);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: var(--ca-transition);
+  line-height: 1.4;
+  letter-spacing: -0.01em;
+  position: relative;
+  overflow: hidden;
+}
+
+.ca-btn::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at center, rgba(255,255,255,0.2) 0%, transparent 70%);
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+
+.ca-btn:active::after {
+  opacity: 1;
+}
+
+.ca-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none !important;
+}
+
+.ca-btn-primary {
+  background: var(--ca-gradient-primary);
+  color: white;
+  box-shadow: 0 2px 8px var(--ca-primary-glow);
+}
+
+.ca-btn-primary:hover:not(:disabled) {
+  box-shadow: 0 4px 16px var(--ca-primary-glow), var(--ca-shadow-glow);
+  transform: translateY(-1px);
+  filter: brightness(1.05);
+}
+
+.ca-btn-primary:active:not(:disabled) {
+  transform: translateY(0);
+  filter: brightness(0.98);
+}
+
+.ca-btn-outline {
+  background: transparent;
+  color: var(--ca-primary);
+  border: 1px solid var(--ca-border);
+}
+
+.ca-btn-outline:hover:not(:disabled) {
+  border-color: var(--ca-primary);
+  background: var(--ca-primary-light);
+  transform: translateY(-1px);
+}
+
+.ca-btn-danger {
+  background: linear-gradient(135deg, #ef4444, #f87171);
+  color: white;
+}
+
+.ca-btn-danger:hover:not(:disabled) {
+  filter: brightness(1.08);
+  transform: translateY(-1px);
+}
+
+.ca-btn-sm { padding: 4px 10px; font-size: 12px; }
+.ca-btn-lg { padding: 12px 24px; font-size: 15px; }
+.ca-btn-block { width: 100%; }
+
+/* =================== 输入框 =================== */
+
+.ca-input {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid var(--ca-border);
+  border-radius: var(--ca-radius);
+  font-size: 13px;
+  color: var(--ca-text);
+  background: var(--ca-bg-card);
+  transition: var(--ca-transition);
+}
+
+.ca-input:focus {
+  outline: none;
+  border-color: var(--ca-border-focus);
+  box-shadow: 0 0 0 3px var(--ca-primary-light), var(--ca-shadow);
+}
+
+.ca-input::placeholder { color: var(--ca-text-muted); }
+
+.ca-textarea {
+  resize: vertical;
+  min-height: 80px;
+  font-family: inherit;
+}
+
+.ca-select {
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%2364748b' d='M3 4.5L6 7.5L9 4.5'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  padding-right: 30px;
+}
+
+/* =================== 卡片 =================== */
+
+.ca-card {
+  background: var(--ca-gradient-card);
+  border: 1px solid var(--ca-border);
+  border-radius: var(--ca-radius-lg);
+  padding: 16px;
+  box-shadow: var(--ca-shadow);
+  transition: var(--ca-transition);
+  backdrop-filter: blur(8px);
+}
+
+.ca-card:hover {
+  box-shadow: var(--ca-shadow-md);
+  border-color: rgba(99, 102, 241, 0.15);
+}
+
+/* 玻璃卡片 */
+.ca-card-glass {
+  background: var(--ca-bg-glass);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: var(--ca-radius-lg);
+  padding: 16px;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  box-shadow: var(--ca-shadow);
+}
+
+/* =================== 表单组 =================== */
+
+.ca-form-group { margin-bottom: 14px; }
+
+.ca-label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ca-text-secondary);
+  margin-bottom: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.ca-label.required::after {
+  content: ' *';
+  color: var(--ca-danger);
+}
+
+/* =================== 标签 =================== */
+
+.ca-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.ca-badge-success { background: var(--ca-success-light); color: #15803d; }
+.ca-badge-warning { background: var(--ca-warning-light); color: #92400e; }
+.ca-badge-danger { background: var(--ca-danger-light); color: #991b1b; }
+.ca-badge-info { background: var(--ca-primary-light); color: #4338ca; }
+
+/* =================== 统计 =================== */
+
+.ca-stat { text-align: center; padding: 8px; }
+
+.ca-stat-value {
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 1.2;
+  background: var(--ca-gradient-primary);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.ca-stat-label {
+  font-size: 11px;
+  color: var(--ca-text-muted);
+  margin-top: 2px;
+}
+
+/* =================== 分割线 =================== */
+
+.ca-divider {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--ca-border), transparent);
+  margin: 16px 0;
+}
+
+/* =================== 空状态 =================== */
+
+.ca-empty {
+  text-align: center;
+  padding: 40px 16px;
+  color: var(--ca-text-muted);
+}
+
+.ca-empty-icon {
+  font-size: 44px;
+  margin-bottom: 12px;
+  filter: grayscale(0.3);
+}
+
+/* =================== 加载 =================== */
+
+.ca-spinner {
+  display: inline-block;
+  width: 20px;
+  height: 20px;
+  border: 2px solid var(--ca-border);
+  border-top-color: var(--ca-primary);
+  border-radius: 50%;
+  animation: ca-spin 0.7s linear infinite;
+}
+
+@keyframes ca-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* =================== 进度条 =================== */
+
+.ca-progress {
+  height: 6px;
+  background: var(--ca-border);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.ca-progress-bar {
+  height: 100%;
+  background: var(--ca-gradient-primary);
+  border-radius: 3px;
+  transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+}
+
+.ca-progress-bar::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+  animation: ca-shimmer 1.5s infinite;
+}
+
+@keyframes ca-shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+/* =================== 动画 =================== */
+
+@keyframes ca-fade-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes ca-slide-in {
+  from { opacity: 0; transform: translateX(-12px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes ca-scale-in {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes ca-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+.ca-animate-in {
+  animation: ca-fade-in 0.4s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+/* =================== 滚动条 =================== */
+
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: var(--ca-text-muted);
+  border-radius: 10px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--ca-text-secondary);
+}
+
+/* =================== 工具提示 =================== */
+
+.ca-tooltip {
+  position: relative;
+}
+
+.ca-tooltip::before {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%) translateY(4px);
+  padding: 4px 10px;
+  background: var(--ca-text);
+  color: var(--ca-bg);
+  font-size: 11px;
+  border-radius: 6px;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: all 0.2s ease;
+}
+
+.ca-tooltip:hover::before {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}

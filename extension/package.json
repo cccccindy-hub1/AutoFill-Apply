@@ -1,0 +1,26 @@
+{
+  "name": "campus-apply-agent",
+  "private": true,
+  "version": "1.0.0",
+  "description": "校招网申智能体 - AI驱动的网申表单自动填充Chrome插件",
+  "type": "module",
+  "scripts": {
+    "dev": "vite build --watch",
+    "build": "tsc && vite build",
+    "check:matching": "esbuild scripts/check-matching.ts --bundle --platform=node --format=esm --outfile=node_modules/.cache/check-matching.mjs --log-level=error && node node_modules/.cache/check-matching.mjs",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "mammoth": "^1.12.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@types/chrome": "^0.0.300",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@vitejs/plugin-react": "^4.3.0",
+    "typescript": "~5.7.0",
+    "vite": "^6.0.0"
+  }
+}

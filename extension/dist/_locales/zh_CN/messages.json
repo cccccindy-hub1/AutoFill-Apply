@@ -1,0 +1,10 @@
+{
+  "extName": {
+    "message": "CampusApply Agent - 校招网申智能体",
+    "description": "Extension name"
+  },
+  "extDescription": {
+    "message": "AI驱动的校招网申表单自动填充工具，一键智能填写，支持国内主流校招系统",
+    "description": "Extension description"
+  }
+}
