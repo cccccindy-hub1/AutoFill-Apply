@@ -39,14 +39,26 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
 // 处理来自 content script / popup / sidebar 的消息
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   switch (message.type) {
-    case 'OPEN_SIDEBAR':
-      // 打开侧边栏
-      chrome.sidePanel.setOptions({ enabled: true });
-      if (message.tabId) {
-        chrome.sidePanel.open({ tabId: message.tabId });
+    case 'OPEN_SIDEBAR': {
+      // 打开侧边栏。sidePanel.open 必须在用户手势上下文中调用，
+      // 否则会抛错——这里捕获并如实反馈，避免前端一直等待。
+      const tabId = message.tabId;
+      if (!tabId) {
+        sendResponse({ success: false, error: '缺少 tabId，无法打开侧边栏' });
+        break;
       }
-      sendResponse({ success: true });
-      break;
+      // 仅对目标标签页启用侧边栏，避免影响其他标签页
+      chrome.sidePanel.setOptions({ tabId, path: 'src/sidebar/index.html', enabled: true });
+      chrome.sidePanel
+        .open({ tabId })
+        .then(() => sendResponse({ success: true }))
+        .catch((error: unknown) => {
+          const message_ = error instanceof Error ? error.message : String(error);
+          console.warn('[CampusApply] 打开侧边栏失败:', message_);
+          sendResponse({ success: false, error: message_ });
+        });
+      return true; // 异步响应
+    }
 
     case 'GET_ACTIVE_TAB':
       chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
@@ -91,15 +103,17 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
       }
       break;
 
+    case 'TRIGGER_FILL_FROM_CONTEXT_MENU':
+      // content script 收到右键菜单指令后无法直接驱动侧边栏，
+      // 由这里广播给侧边栏，触发整页填充流程。
+      chrome.runtime.sendMessage({ type: 'AUTO_FILL' }).catch(() => {
+        // 侧边栏未打开时没有接收方，属于正常情况
+      });
+      sendResponse({ success: true });
+      break;
+
     default:
       break;
-  }
-});
-
-// 点击插件图标时打开侧边栏
-chrome.action.onClicked.addListener((tab) => {
-  if (tab.id) {
-    chrome.sidePanel.open({ tabId: tab.id });
   }
 });
 

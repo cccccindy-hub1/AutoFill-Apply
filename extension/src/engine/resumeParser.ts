@@ -113,6 +113,98 @@ export async function extractTextFromFile(file: File): Promise<string> {
   });
 }
 
+/** 安全地把 LLM 返回的任意值转成字符串 */
+function str(value: unknown): string {
+  return typeof value === 'string' ? value : '';
+}
+
+/** 把 LLM 返回的任意值转成字符串数组 */
+function strArray(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter((item): item is string => typeof item === 'string');
+}
+
+const EDUCATION_TYPES: Education['type'][] = ['本科', '硕士', '博士', '交换', '其他'];
+
+/** 学历关键词 → 统一枚举（高教优先，避免「本科」被「研究生」以外的词抢走） */
+const EDUCATION_TYPE_KEYWORDS: [string, Education['type']][] = [
+  ['博士', '博士'],
+  ['phd', '博士'],
+  ['doctor', '博士'],
+  ['硕士', '硕士'],
+  ['研究生', '硕士'],
+  ['master', '硕士'],
+  ['mba', '硕士'],
+  ['本科', '本科'],
+  ['学士', '本科'],
+  ['bachelor', '本科'],
+  ['交换', '交换'],
+  ['exchange', '交换'],
+  ['visiting', '交换'],
+];
+
+/**
+ * 规整 LLM 返回的学历类型。
+ * LLM 可能返回「硕士研究生」「Bachelor's Degree」这类自由文本，
+ * 直接断言成联合类型会产生类型系统无法保护的值。
+ */
+export function normalizeEducationType(value: unknown): Education['type'] {
+  const raw = str(value).trim();
+  if (!raw) return '本科';
+  if ((EDUCATION_TYPES as string[]).includes(raw)) return raw as Education['type'];
+  const lower = raw.toLowerCase();
+  for (const [keyword, type] of EDUCATION_TYPE_KEYWORDS) {
+    if (lower.includes(keyword)) return type;
+  }
+  return '其他';
+}
+
+const EXPERIENCE_TYPES: Experience['type'][] = ['实习', '项目', '科研', '校园', '竞赛', '其他'];
+
+/** 经历关键词 → 统一枚举（顺序即优先级） */
+const EXPERIENCE_TYPE_KEYWORDS: [string, Experience['type']][] = [
+  ['实习', '实习'],
+  ['intern', '实习'],
+  ['项目', '项目'],
+  ['project', '项目'],
+  ['科研', '科研'],
+  ['研究', '科研'],
+  ['research', '科研'],
+  ['论文', '科研'],
+  ['竞赛', '竞赛'],
+  ['比赛', '竞赛'],
+  ['contest', '竞赛'],
+  ['hackathon', '竞赛'],
+  ['校园', '校园'],
+  ['社团', '校园'],
+  ['学生会', '校园'],
+  ['campus', '校园'],
+];
+
+/** 规整 LLM 返回的经历类型 */
+export function normalizeExperienceType(value: unknown): Experience['type'] {
+  const raw = str(value).trim();
+  if (!raw) return '实习';
+  if ((EXPERIENCE_TYPES as string[]).includes(raw)) return raw as Experience['type'];
+  const lower = raw.toLowerCase();
+  for (const [keyword, type] of EXPERIENCE_TYPE_KEYWORDS) {
+    if (lower.includes(keyword)) return type;
+  }
+  return '其他';
+}
+
+/** 规整 LLM 返回的性别；无法识别时返回空串而不是非法值 */
+export function normalizeGender(value: unknown): PersonalInfo['gender'] {
+  const raw = str(value).trim();
+  if (!raw) return '';
+  if (raw === '男' || raw === '女' || raw === '其他') return raw;
+  const lower = raw.toLowerCase();
+  if (lower === 'male' || lower === 'm' || lower.includes('男')) return '男';
+  if (lower === 'female' || lower === 'f' || lower.includes('女')) return '女';
+  if (lower.includes('other') || lower.includes('其他')) return '其他';
+  return '';
+}
+
 /**
  * 解析简历文本为结构化数据
  */
@@ -137,46 +229,46 @@ export async function parseResumeText(
     // 映射个人信息
     if (parsed.name || parsed.phone || parsed.email) {
       result.data!.personalInfo = {
-        name: (parsed.name as string) || '',
-        gender: ((parsed.gender as string) || '') as PersonalInfo['gender'],
-        phone: (parsed.phone as string) || '',
-        email: (parsed.email as string) || '',
-        birthDate: (parsed.birthDate as string) || '',
-        nativePlace: (parsed.nativePlace as string) || '',
-        politicalStatus: (parsed.politicalStatus as string) || '',
+        name: str(parsed.name),
+        gender: normalizeGender(parsed.gender),
+        phone: str(parsed.phone),
+        email: str(parsed.email),
+        birthDate: str(parsed.birthDate),
+        nativePlace: str(parsed.nativePlace),
+        politicalStatus: str(parsed.politicalStatus),
       };
     }
 
     // 映射教育经历
     if (Array.isArray(parsed.educations)) {
       result.data!.educations = parsed.educations.map((edu: Record<string, unknown>) => ({
-        type: ((edu.type as string) || '本科') as Education['type'],
-        school: (edu.school as string) || '',
-        college: (edu.college as string) || '',
-        major: (edu.major as string) || '',
-        startDate: (edu.startDate as string) || '',
-        endDate: (edu.endDate as string) || '',
-        gpa: (edu.gpa as string) || '',
-        ranking: (edu.ranking as string) || '',
+        type: normalizeEducationType(edu.type),
+        school: str(edu.school),
+        college: str(edu.college),
+        major: str(edu.major),
+        startDate: str(edu.startDate),
+        endDate: str(edu.endDate),
+        gpa: str(edu.gpa),
+        ranking: str(edu.ranking),
       }));
     }
 
     // 映射实习/项目经历
     if (Array.isArray(parsed.experiences)) {
       result.data!.experiences = parsed.experiences.map((exp: Record<string, unknown>) => ({
-        type: ((exp.type as string) || '实习') as Experience['type'],
-        organization: (exp.organization as string) || '',
-        role: (exp.role as string) || '',
-        startDate: (exp.startDate as string) || '',
-        endDate: (exp.endDate as string) || '',
-        description: (exp.description as string) || '',
-        bullets: Array.isArray(exp.bullets) ? exp.bullets as string[] : [],
+        type: normalizeExperienceType(exp.type),
+        organization: str(exp.organization),
+        role: str(exp.role),
+        startDate: str(exp.startDate),
+        endDate: str(exp.endDate),
+        description: str(exp.description),
+        bullets: strArray(exp.bullets),
       }));
     }
 
     // 技能
     if (Array.isArray(parsed.skills)) {
-      result.data!.skills = parsed.skills as string[];
+      result.data!.skills = strArray(parsed.skills);
     }
 
     return result;

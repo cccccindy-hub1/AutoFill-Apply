@@ -1630,13 +1630,24 @@ async function fillByKind(anchor: HTMLElement, kind: WidgetKind, value: string):
   }
 }
 
+/** 文本类控件写入时按 maxLength 截断，避免超长内容被浏览器静默丢弃 */
+const TRUNCATABLE_KINDS = new Set<WidgetKind>(['text', 'textarea', 'contenteditable']);
+
+function truncateForAnchor(anchor: HTMLElement, kind: WidgetKind, value: string): string {
+  if (!TRUNCATABLE_KINDS.has(kind)) return value;
+  if (!(anchor instanceof HTMLInputElement || anchor instanceof HTMLTextAreaElement)) return value;
+  const max = anchor.maxLength;
+  if (max > 0 && value.length > max) return value.slice(0, max);
+  return value;
+}
+
 async function executeFill(
   fieldsToFill: { fieldId: string; value: string; type?: string }[]
 ): Promise<FillFieldResult[]> {
   const ats = detectCurrentATS();
   const results: FillFieldResult[] = [];
 
-  for (const { fieldId, value, type } of fieldsToFill) {
+  for (const { fieldId, value: rawValue, type } of fieldsToFill) {
     const anchor = document.querySelector<HTMLElement>(`[data-ca-field-id="${fieldId}"]`);
 
     if (!anchor) {
@@ -1653,6 +1664,7 @@ async function executeFill(
 
     const label = anchor.getAttribute('data-ca-label') || findLabel(anchor, ats);
     const kind = (anchor.getAttribute('data-ca-widget') as WidgetKind | null) || inferKindFromDom(anchor);
+    const value = truncateForAnchor(anchor, kind, rawValue);
 
     let outcome: FillOutcome;
     try {

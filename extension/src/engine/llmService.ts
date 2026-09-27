@@ -6,6 +6,14 @@
 // ============================================================
 
 import type { AIModelConfig } from '../types/models';
+import { findProvider } from './providers';
+
+/** 单次请求超时（毫秒） */
+const REQUEST_TIMEOUT_MS = 30_000;
+/** 可重试状态码：限流与网关/服务端临时故障 */
+const RETRYABLE_STATUS = new Set([408, 425, 429, 500, 502, 503, 504]);
+/** 最大尝试次数（含首次） */
+const MAX_ATTEMPTS = 2;
 
 /** LLM 调用参数 */
 interface LLMRequest {
@@ -20,36 +28,56 @@ interface LLMResponse {
   usage?: { promptTokens: number; completionTokens: number };
 }
 
-/** 获取 API base URL */
+const FALLBACK_BASE_URL = 'https://api.openai.com/v1';
+
+/** 获取 API base URL（默认值统一取自 providers 元数据表） */
 function getBaseUrl(config: AIModelConfig): string {
   if (config.baseUrl) return config.baseUrl.replace(/\/$/, '');
+  return findProvider(config.provider)?.defaultBaseUrl || FALLBACK_BASE_URL;
+}
 
-  switch (config.provider) {
-    case 'openai':
-      return 'https://api.openai.com/v1';
-    case 'claude':
-      return 'https://api.anthropic.com/v1';
-    case 'doubao':
-      return 'https://ark.cn-beijing.volces.com/api/v3';
-    case 'qianwen':
-      return 'https://dashscope.aliyuncs.com/compatible-mode/v1';
-    case 'minimax':
-      return 'https://api.minimax.chat/v1';
-    case 'deepseek':
-      return 'https://api.deepseek.com/v1';
-    case 'zhipu':
-      return 'https://open.bigmodel.cn/api/paas/v4';
-    case 'moonshot':
-      return 'https://api.moonshot.cn/v1';
-    case 'baichuan':
-      return 'https://api.baichuan-ai.com/v1';
-    case 'ollama':
-      return 'http://localhost:11434/v1';
-    case 'custom':
-      return config.baseUrl || 'https://api.openai.com/v1';
-    default:
-      return 'https://api.openai.com/v1';
+/**
+ * 带超时与失败重试的 fetch。
+ * 没有超时的话，网络异常时请求会一直挂着，用户界面表现为「永远在生成中」。
+ */
+async function fetchWithRetry(url: string, init: RequestInit): Promise<Response> {
+  let lastError: unknown;
+
+  for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+
+    try {
+      const response = await fetch(url, { ...init, signal: controller.signal });
+
+      // 仅对限流/服务端错误重试，其余状态码交给调用方处理
+      if (RETRYABLE_STATUS.has(response.status) && attempt < MAX_ATTEMPTS - 1) {
+        lastError = new Error(`HTTP ${response.status}`);
+        await sleep(500 * 2 ** attempt);
+        continue;
+      }
+      return response;
+    } catch (error) {
+      // 超时中断也属于可重试的临时故障
+      lastError = error;
+      if (attempt < MAX_ATTEMPTS - 1) {
+        await sleep(500 * 2 ** attempt);
+        continue;
+      }
+      if (error instanceof DOMException && error.name === 'AbortError') {
+        throw new Error(`请求超时（${REQUEST_TIMEOUT_MS / 1000} 秒），请检查网络或降低模型负载`);
+      }
+      throw error;
+    } finally {
+      clearTimeout(timer);
+    }
   }
+
+  throw lastError instanceof Error ? lastError : new Error('请求失败');
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 /** 调用 LLM API（OpenAI 兼容格式） */
@@ -65,7 +93,7 @@ export async function callLLM(
   }
 
   // OpenAI 兼容格式（适用于 OpenAI / 通义千问 / 豆包 / Ollama / 自定义）
-  const response = await fetch(`${baseUrl}/chat/completions`, {
+  const response = await fetchWithRetry(`${baseUrl}/chat/completions`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -105,7 +133,7 @@ async function callClaudeAPI(
   const systemMessage = request.messages.find((m) => m.role === 'system')?.content;
   const otherMessages = request.messages.filter((m) => m.role !== 'system');
 
-  const response = await fetch(`${baseUrl}/messages`, {
+  const response = await fetchWithRetry(`${baseUrl}/messages`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',

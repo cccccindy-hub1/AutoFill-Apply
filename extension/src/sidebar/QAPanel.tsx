@@ -1,8 +1,7 @@
 import { useState, useCallback } from 'react';
-import type { AIModelConfig } from '../types/models';
-import { aiConfigDB, personalInfoDB, educationDB, experienceDB } from '../storage/db';
+import { aiConfigDB } from '../storage/db';
 import { llmGenerateAnswer } from '../engine/llmService';
-import { generateUserDataSummary} from '../engine/fillOrchestrator';
+import { generateUserDataSummary, loadUserData } from '../engine/fillOrchestrator';
 
 interface QAProps {
   onStatusUpdate?: (msg: string) => void;
@@ -29,25 +28,13 @@ export default function QAPanel({ onStatusUpdate }: QAProps) {
         return;
       }
 
-      // 加载用户数据
-      const [personalInfo, educations, experiences] = await Promise.all([
-        personalInfoDB.get(),
-        educationDB.getAll(),
-        experienceDB.getAll(),
-      ]);
-
-      if (!personalInfo?.name) {
+      // 加载用户数据（含技能，与整页填充共用同一份上下文）
+      const userData = await loadUserData();
+      if (!userData.personalInfo.name) {
         onStatusUpdate?.('❌ 请先填写个人信息');
         setIsGenerating(false);
         return;
       }
-
-      const userData = {
-        personalInfo,
-        educations,
-        experiences,
-        skills: [],
-      };
 
       const summary = generateUserDataSummary(userData);
       const result = await llmGenerateAnswer(config, question.trim(), summary);
@@ -62,9 +49,10 @@ export default function QAPanel({ onStatusUpdate }: QAProps) {
   }, [question, onStatusUpdate]);
 
   const handleCopy = () => {
-    navigator.clipboard.writeText(answer).then(() => {
-      onStatusUpdate?.('📋 已复制到剪贴板');
-    });
+    navigator.clipboard
+      .writeText(answer)
+      .then(() => onStatusUpdate?.('📋 已复制到剪贴板'))
+      .catch(() => onStatusUpdate?.('❌ 复制失败，请手动选中文本复制'));
   };
 
   return (

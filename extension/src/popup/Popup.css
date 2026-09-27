@@ -54,6 +54,17 @@
   margin-top: 2px;
 }
 
+.popup-error {
+  margin: 0 16px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--ca-danger);
+  background: rgba(220, 38, 38, 0.08);
+  border: 1px solid rgba(220, 38, 38, 0.25);
+}
+
 .popup-actions {
   padding: 16px;
   display: flex;

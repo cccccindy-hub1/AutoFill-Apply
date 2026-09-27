@@ -118,8 +118,12 @@ export async function executeFullFill(
 
 // =================== 内部函数 ===================
 
-/** 加载所有用户数据 */
-async function loadUserData(): Promise<UserDataContext> {
+/**
+ * 加载所有用户数据。
+ * 导出给其他需要完整用户上下文（含技能）的界面复用，
+ * 避免各处自行拼装时漏掉某类数据。
+ */
+export async function loadUserData(): Promise<UserDataContext> {
   const [personalInfo, educations, experiences, skills] = await Promise.all([
     personalInfoDB.get(),
     educationDB.getAll(),

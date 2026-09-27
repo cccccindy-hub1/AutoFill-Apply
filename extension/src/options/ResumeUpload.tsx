@@ -25,20 +25,29 @@ export default function ResumeUpload({ onComplete }: ResumeUploadProps) {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const maxSize = 10 * 1024 * 1024; // 10MB限制
-    if (file.size > maxSize) {
-      setStatus('error');
-      setStatusMessage('文件大小超过 10MB 限制');
-      return;
-    }
+    const fileName = file.name.toLowerCase();
 
     try {
+      const maxSize = 10 * 1024 * 1024; // 10MB限制
+      if (file.size > maxSize) {
+        setStatus('error');
+        setStatusMessage('文件大小超过 10MB 限制');
+        return;
+      }
+
+      // 旧版 .doc 是二进制格式，按纯文本读取只会得到乱码，
+      // 提前给出可执行的指引，而不是让它走到「内容太少」的误导性报错。
+      if (fileName.endsWith('.doc')) {
+        setStatus('error');
+        setStatusMessage('暂不支持旧版 .doc 格式，请在 Word 中另存为 .docx 后重试');
+        return;
+      }
+
       // Step 1: 提取文本
       setStatus('extracting');
       setStatusMessage(`正在从 ${file.name} 中提取文本...`);
 
       let text: string;
-      const fileName = file.name.toLowerCase();
       if (file.type === 'application/pdf' || fileName.endsWith('.pdf')) {
         text = await extractTextFromPDF(file);
       } else if (
@@ -90,11 +99,12 @@ export default function ResumeUpload({ onComplete }: ResumeUploadProps) {
     } catch (error) {
       setStatus('error');
       setStatusMessage(error instanceof Error ? error.message : '解析失败');
-    }
-
-    // 重置 input
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
+    } finally {
+      // 重置 input，保证下次选择同一个文件仍能触发 change
+      // （提前 return 的分支也要走到，否则会残留旧值）
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
     }
   };
 

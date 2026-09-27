@@ -14,6 +14,7 @@ import type {
   ApplicationRecord,
   UserData,
 } from '../types/models';
+import { APP_VERSION } from '../version';
 
 const DB_NAME = 'CampusApplyAgent';
 const DB_VERSION = 1;
@@ -30,9 +31,18 @@ const STORES = {
   APPLICATION_RECORDS: 'applicationRecords',
 } as const;
 
-/** 打开/初始化数据库 */
+/**
+ * 缓存数据库连接。
+ * 每次 CRUD 都重新 open 会反复付出握手开销（选项页一次加载就要开 4 个连接），
+ * 因此这里复用同一个连接；当其他上下文触发版本变更时失效以便重建。
+ */
+let dbPromise: Promise<IDBDatabase> | null = null;
+
+/** 打开/初始化数据库（带连接缓存） */
 function openDB(): Promise<IDBDatabase> {
-  return new Promise((resolve, reject) => {
+  if (dbPromise) return dbPromise;
+
+  dbPromise = new Promise((resolve, reject) => {
     const request = indexedDB.open(DB_NAME, DB_VERSION);
 
     request.onupgradeneeded = (event) => {
@@ -73,9 +83,32 @@ function openDB(): Promise<IDBDatabase> {
       }
     };
 
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error);
+    request.onsuccess = () => {
+      const db = request.result;
+      // 其他标签页/扩展上下文升级了数据库版本时必须让出连接，
+      // 否则对方的 upgradeneeded 会被阻塞；同时清除缓存以便下次重连。
+      db.onversionchange = () => {
+        db.close();
+        dbPromise = null;
+      };
+      resolve(db);
+    };
+    request.onerror = () => {
+      dbPromise = null;
+      reject(request.error);
+    };
+    request.onblocked = () => {
+      dbPromise = null;
+      reject(new Error('数据库被其他页面占用，请关闭其他标签页后重试'));
+    };
   });
+
+  // 打开失败时不要把失败的 Promise 永久缓存下来
+  dbPromise.catch(() => {
+    dbPromise = null;
+  });
+
+  return dbPromise;
 }
 
 /** 生成唯一 ID */
@@ -239,7 +272,7 @@ export async function exportAllData(): Promise<UserData> {
     ]);
 
   return {
-    version: '1.0.0',
+    version: APP_VERSION,
     exportedAt: new Date().toISOString(),
     personalInfo: personalInfo || createEmptyPersonalInfo(),
     educations,
@@ -283,8 +316,8 @@ export async function importAllData(data: UserData): Promise<void> {
   await Promise.all(promises);
 }
 
-/** 创建空的个人信息 */
-function createEmptyPersonalInfo(): PersonalInfo {
+/** 创建空的个人信息（供选项页等处复用，避免多处重复定义） */
+export function createEmptyPersonalInfo(): PersonalInfo {
   const now = new Date().toISOString();
   return {
     id: generateId(),

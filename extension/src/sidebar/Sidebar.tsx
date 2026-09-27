@@ -1,10 +1,29 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { FormField, FillResult } from '../types/models';
 import { executeFullFill } from '../engine/fillOrchestrator';
+import { APP_VERSION } from '../version';
 import QAPanel from './QAPanel';
 import './Sidebar.css';
 
 type TabType = 'fill' | 'result' | 'qa' | 'info';
+
+/**
+ * 向指定标签页的内容脚本发消息。
+ * 内容脚本未注入时回调不会带 response，只会设置 lastError，
+ * 若不读取该错误会表现为「界面一直卡在加载中」，因此统一在此收敛。
+ */
+function sendTabMessage<T>(tabId: number, message: unknown): Promise<T> {
+  return new Promise((resolve, reject) => {
+    chrome.tabs.sendMessage(tabId, message, (response: T) => {
+      const err = chrome.runtime.lastError;
+      if (err) {
+        reject(new Error(err.message || '无法连接到页面'));
+        return;
+      }
+      resolve(response);
+    });
+  });
+}
 
 export default function Sidebar() {
   const [activeTab, setActiveTab] = useState<TabType>('fill');
@@ -35,17 +54,23 @@ export default function Sidebar() {
         return;
       }
 
-      chrome.tabs.sendMessage(tabId, { type: 'SCAN_FORM_FIELDS' }, (response) => {
-        if (response?.success) {
-          setScannedFields(response.fields);
-          setStatusMessage(`✅ 发现 ${response.fields.length} 个可填充字段`);
-        } else {
-          setStatusMessage('❌ 扫描失败，请确认页面已完全加载');
-        }
-        setIsScanning(false);
+      const response = await sendTabMessage<{ success: boolean; fields: FormField[] }>(tabId, {
+        type: 'SCAN_FORM_FIELDS',
       });
-    } catch {
-      setStatusMessage('❌ 扫描出错，请刷新页面重试');
+      if (response?.success) {
+        setScannedFields(response.fields);
+        setStatusMessage(`✅ 发现 ${response.fields.length} 个可填充字段`);
+      } else {
+        setStatusMessage('❌ 扫描失败，请确认页面已完全加载');
+      }
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : '';
+      setStatusMessage(
+        msg.includes('Receiving end does not exist') || msg.includes('Could not establish')
+          ? '❌ 当前页面未注入脚本，请刷新页面后重试'
+          : '❌ 扫描出错，请刷新页面重试'
+      );
+    } finally {
       setIsScanning(false);
     }
   };
@@ -84,16 +109,41 @@ export default function Sidebar() {
   // 清空填充
   const handleClear = async () => {
     const tabId = await getActiveTabId();
-    if (!tabId) return;
+    if (!tabId) {
+      setStatusMessage('❌ 无法获取当前标签页');
+      return;
+    }
 
-    chrome.tabs.sendMessage(tabId, { type: 'CLEAR_ALL_FILLED' }, (response) => {
+    try {
+      const response = await sendTabMessage<{ success: boolean }>(tabId, {
+        type: 'CLEAR_ALL_FILLED',
+      });
       if (response?.success) {
         setFillResult(null);
         setScannedFields([]);
         setStatusMessage('🧹 已清空所有填充内容');
+      } else {
+        setStatusMessage('❌ 清空失败，请刷新页面后重试');
       }
-    });
+    } catch {
+      setStatusMessage('❌ 当前页面未注入脚本，请刷新页面后重试');
+    }
   };
+
+  // 右键菜单「一键填充整页」由 background 广播 AUTO_FILL 事件驱动
+  // 用 ref 保存最新 handler，避免把 handleFill 放进依赖数组导致重复订阅
+  const fillHandlerRef = useRef(handleFill);
+  fillHandlerRef.current = handleFill;
+
+  useEffect(() => {
+    const listener = (message: { type?: string }) => {
+      if (message?.type === 'AUTO_FILL') {
+        void fillHandlerRef.current();
+      }
+    };
+    chrome.runtime.onMessage.addListener(listener);
+    return () => chrome.runtime.onMessage.removeListener(listener);
+  }, []);
 
   return (
     <div className="sidebar">
@@ -250,7 +300,11 @@ export default function Sidebar() {
                   <div
                     className="ca-progress-bar"
                     style={{
-                      width: `${(fillResult.successFields / fillResult.totalFields) * 100}%`,
+                      width: `${
+                        fillResult.totalFields > 0
+                          ? (fillResult.successFields / fillResult.totalFields) * 100
+                          : 0
+                      }%`,
                     }}
                   />
                 </div>
@@ -353,7 +407,7 @@ export default function Sidebar() {
 
       {/* 底部 */}
       <footer className="sidebar-footer">
-        <span>CampusApply Agent v1.0.0</span>
+        <span>CampusApply Agent v{APP_VERSION}</span>
         <span>数据仅存储在本地 🔒</span>
       </footer>
     </div>

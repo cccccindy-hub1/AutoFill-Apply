@@ -8,27 +8,13 @@ import {
   generateId,
   exportAllData,
   importAllData,
+  createEmptyPersonalInfo,
 } from '../storage/db';
+import { PROVIDERS, findProvider } from '../engine/providers';
 import ResumeUpload from './ResumeUpload';
 import './Options.css';
 
 type PageType = 'personal' | 'education' | 'experience' | 'ai' | 'resume' | 'backup';
-
-function createEmptyPersonalInfo(): PersonalInfo {
-  const now = new Date().toISOString();
-  return {
-    id: generateId(),
-    name: '',
-    gender: '',
-    birthDate: '',
-    phone: '',
-    email: '',
-    targetCities: [],
-    targetPositions: [],
-    createdAt: now,
-    updatedAt: now,
-  };
-}
 
 function createEmptyEducation(): Education {
   const now = new Date().toISOString();
@@ -74,6 +60,8 @@ export default function Options() {
   const [experiences, setExperiences] = useState<Experience[]>([]);
   const [aiConfigs, setAIConfigs] = useState<AIModelConfig[]>([]);
   const [saveStatus, setSaveStatus] = useState('');
+  // 存在未落库的改动（新增条目或已编辑但未保存的字段）
+  const [dirty, setDirty] = useState(false);
 
   // 加载数据
   const loadData = useCallback(async () => {
@@ -93,11 +81,31 @@ export default function Options() {
     loadData();
   }, [loadData]);
 
+  // 切换页面前提醒未保存的改动，避免「点了新增/改了字段，切个标签就没了」
+  const switchPage = (next: PageType) => {
+    if (next === activePage) return;
+    if (dirty && !confirm('有未保存的修改，确定离开吗？')) return;
+    setDirty(false);
+    setActivePage(next);
+  };
+
+  // 刷新/关闭页面时同样提醒
+  useEffect(() => {
+    if (!dirty) return;
+    const handler = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = '';
+    };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [dirty]);
+
   // 保存个人信息
   const savePersonalInfo = async () => {
     const updated = { ...personalInfo, updatedAt: new Date().toISOString() };
     await personalInfoDB.save(updated);
     setPersonalInfo(updated);
+    setDirty(false);
     setSaveStatus('✅ 个人信息已保存');
     setTimeout(() => setSaveStatus(''), 2000);
   };
@@ -107,6 +115,7 @@ export default function Options() {
     const updated = { ...edu, updatedAt: new Date().toISOString() };
     await educationDB.save(updated);
     await loadData();
+    setDirty(false);
     setSaveStatus('✅ 教育经历已保存');
     setTimeout(() => setSaveStatus(''), 2000);
   };
@@ -116,6 +125,7 @@ export default function Options() {
     const updated = { ...exp, updatedAt: new Date().toISOString() };
     await experienceDB.save(updated);
     await loadData();
+    setDirty(false);
     setSaveStatus('✅ 经历已保存');
     setTimeout(() => setSaveStatus(''), 2000);
   };
@@ -125,6 +135,7 @@ export default function Options() {
     if (confirm('确定删除该教育经历吗？')) {
       await educationDB.delete(id);
       await loadData();
+      setDirty(false);
     }
   };
 
@@ -133,6 +144,7 @@ export default function Options() {
     if (confirm('确定删除该经历吗？')) {
       await experienceDB.delete(id);
       await loadData();
+      setDirty(false);
     }
   };
 
@@ -148,6 +160,7 @@ export default function Options() {
     }
     await aiConfigDB.save(config);
     await loadData();
+    setDirty(false);
     setSaveStatus('✅ AI 配置已保存');
     setTimeout(() => setSaveStatus(''), 2000);
   };
@@ -217,7 +230,7 @@ export default function Options() {
             <button
               key={item.key}
               className={`options-nav-item ${activePage === item.key ? 'active' : ''}`}
-              onClick={() => setActivePage(item.key)}
+              onClick={() => switchPage(item.key)}
             >
               <span>{item.icon}</span> {item.label}
             </button>
@@ -420,6 +433,7 @@ export default function Options() {
                 const newEdu = createEmptyEducation();
                 newEdu.order = educations.length;
                 setEducations([...educations, newEdu]);
+                setDirty(true);
               }}>
                 ➕ 添加教育经历
               </button>
@@ -442,7 +456,7 @@ export default function Options() {
                     <div className="ca-form-group">
                       <label className="ca-label required">学历类型</label>
                       <select className="ca-input ca-select" value={edu.type}
-                        onChange={(e) => { const updated = [...educations]; updated[index] = { ...edu, type: e.target.value as Education['type'] }; setEducations(updated); }}>
+                        onChange={(e) => { const updated = [...educations]; updated[index] = { ...edu, type: e.target.value as Education['type'] }; setEducations(updated); setDirty(true); }}>
                         <option value="本科">本科</option>
                         <option value="硕士">硕士</option>
                         <option value="博士">博士</option>
@@ -452,65 +466,65 @@ export default function Options() {
                     <div className="ca-form-group">
                       <label className="ca-label required">学校名称</label>
                       <input className="ca-input" value={edu.school}
-                        onChange={(e) => { const updated = [...educations]; updated[index] = { ...edu, school: e.target.value }; setEducations(updated); }}
+                        onChange={(e) => { const updated = [...educations]; updated[index] = { ...edu, school: e.target.value }; setEducations(updated); setDirty(true); }}
                         placeholder="如：北京大学" />
                     </div>
                     <div className="ca-form-group">
                       <label className="ca-label">学院</label>
                       <input className="ca-input" value={edu.college || ''}
-                        onChange={(e) => { const updated = [...educations]; updated[index] = { ...edu, college: e.target.value }; setEducations(updated); }}
+                        onChange={(e) => { const updated = [...educations]; updated[index] = { ...edu, college: e.target.value }; setEducations(updated); setDirty(true); }}
                         placeholder="如：信息科学技术学院" />
                     </div>
                     <div className="ca-form-group">
                       <label className="ca-label required">专业</label>
                       <input className="ca-input" value={edu.major}
-                        onChange={(e) => { const updated = [...educations]; updated[index] = { ...edu, major: e.target.value }; setEducations(updated); }}
+                        onChange={(e) => { const updated = [...educations]; updated[index] = { ...edu, major: e.target.value }; setEducations(updated); setDirty(true); }}
                         placeholder="如：计算机科学与技术" />
                     </div>
                     <div className="ca-form-group">
                       <label className="ca-label">入学时间</label>
                       <input className="ca-input" type="date" value={edu.startDate}
-                        onChange={(e) => { const updated = [...educations]; updated[index] = { ...edu, startDate: e.target.value }; setEducations(updated); }} />
+                        onChange={(e) => { const updated = [...educations]; updated[index] = { ...edu, startDate: e.target.value }; setEducations(updated); setDirty(true); }} />
                     </div>
                     <div className="ca-form-group">
                       <label className="ca-label">毕业时间</label>
                       <input className="ca-input" type="date" value={edu.endDate}
-                        onChange={(e) => { const updated = [...educations]; updated[index] = { ...edu, endDate: e.target.value }; setEducations(updated); }} />
+                        onChange={(e) => { const updated = [...educations]; updated[index] = { ...edu, endDate: e.target.value }; setEducations(updated); setDirty(true); }} />
                     </div>
                     <div className="ca-form-group">
                       <label className="ca-label">GPA</label>
                       <input className="ca-input" value={edu.gpa || ''}
-                        onChange={(e) => { const updated = [...educations]; updated[index] = { ...edu, gpa: e.target.value }; setEducations(updated); }}
+                        onChange={(e) => { const updated = [...educations]; updated[index] = { ...edu, gpa: e.target.value }; setEducations(updated); setDirty(true); }}
                         placeholder="如：3.8" />
                     </div>
                     <div className="ca-form-group">
                       <label className="ca-label">GPA 满分</label>
                       <input className="ca-input" value={edu.gpaTotal || ''}
-                        onChange={(e) => { const updated = [...educations]; updated[index] = { ...edu, gpaTotal: e.target.value }; setEducations(updated); }}
+                        onChange={(e) => { const updated = [...educations]; updated[index] = { ...edu, gpaTotal: e.target.value }; setEducations(updated); setDirty(true); }}
                         placeholder="如：4.0" />
                     </div>
                     <div className="ca-form-group">
                       <label className="ca-label">排名</label>
                       <input className="ca-input" value={edu.ranking || ''}
-                        onChange={(e) => { const updated = [...educations]; updated[index] = { ...edu, ranking: e.target.value }; setEducations(updated); }}
+                        onChange={(e) => { const updated = [...educations]; updated[index] = { ...edu, ranking: e.target.value }; setEducations(updated); setDirty(true); }}
                         placeholder="如：5/120" />
                     </div>
                     <div className="ca-form-group">
                       <label className="ca-label">四级成绩</label>
                       <input className="ca-input" value={edu.cet4 || ''}
-                        onChange={(e) => { const updated = [...educations]; updated[index] = { ...edu, cet4: e.target.value }; setEducations(updated); }}
+                        onChange={(e) => { const updated = [...educations]; updated[index] = { ...edu, cet4: e.target.value }; setEducations(updated); setDirty(true); }}
                         placeholder="如：550" />
                     </div>
                     <div className="ca-form-group">
                       <label className="ca-label">六级成绩</label>
                       <input className="ca-input" value={edu.cet6 || ''}
-                        onChange={(e) => { const updated = [...educations]; updated[index] = { ...edu, cet6: e.target.value }; setEducations(updated); }}
+                        onChange={(e) => { const updated = [...educations]; updated[index] = { ...edu, cet6: e.target.value }; setEducations(updated); setDirty(true); }}
                         placeholder="如：520" />
                     </div>
                     <div className="ca-form-group">
                       <label className="ca-label">培养方式</label>
                       <select className="ca-input ca-select" value={edu.trainingMode || ''}
-                        onChange={(e) => { const updated = [...educations]; updated[index] = { ...edu, trainingMode: e.target.value }; setEducations(updated); }}>
+                        onChange={(e) => { const updated = [...educations]; updated[index] = { ...edu, trainingMode: e.target.value }; setEducations(updated); setDirty(true); }}>
                         <option value="">请选择</option>
                         <option value="全日制">全日制</option>
                         <option value="非全日制">非全日制</option>
@@ -538,6 +552,7 @@ export default function Options() {
                 const newExp = createEmptyExperience();
                 newExp.order = experiences.length;
                 setExperiences([...experiences, newExp]);
+                setDirty(true);
               }}>
                 ➕ 添加经历
               </button>
@@ -559,7 +574,7 @@ export default function Options() {
                     <div className="ca-form-group">
                       <label className="ca-label">经历类型</label>
                       <select className="ca-input ca-select" value={exp.type}
-                        onChange={(e) => { const u = [...experiences]; u[index] = { ...exp, type: e.target.value as Experience['type'] }; setExperiences(u); }}>
+                        onChange={(e) => { const u = [...experiences]; u[index] = { ...exp, type: e.target.value as Experience['type'] }; setExperiences(u); setDirty(true); }}>
                         <option value="实习">实习</option>
                         <option value="项目">项目</option>
                         <option value="科研">科研</option>
@@ -571,42 +586,42 @@ export default function Options() {
                     <div className="ca-form-group">
                       <label className="ca-label required">公司/组织</label>
                       <input className="ca-input" value={exp.organization}
-                        onChange={(e) => { const u = [...experiences]; u[index] = { ...exp, organization: e.target.value }; setExperiences(u); }}
+                        onChange={(e) => { const u = [...experiences]; u[index] = { ...exp, organization: e.target.value }; setExperiences(u); setDirty(true); }}
                         placeholder="如：字节跳动" />
                     </div>
                     <div className="ca-form-group">
                       <label className="ca-label required">岗位/角色</label>
                       <input className="ca-input" value={exp.role}
-                        onChange={(e) => { const u = [...experiences]; u[index] = { ...exp, role: e.target.value }; setExperiences(u); }}
+                        onChange={(e) => { const u = [...experiences]; u[index] = { ...exp, role: e.target.value }; setExperiences(u); setDirty(true); }}
                         placeholder="如：产品经理实习生" />
                     </div>
                     <div className="ca-form-group">
                       <label className="ca-label">工作地点</label>
                       <input className="ca-input" value={exp.location || ''}
-                        onChange={(e) => { const u = [...experiences]; u[index] = { ...exp, location: e.target.value }; setExperiences(u); }}
+                        onChange={(e) => { const u = [...experiences]; u[index] = { ...exp, location: e.target.value }; setExperiences(u); setDirty(true); }}
                         placeholder="如：北京" />
                     </div>
                     <div className="ca-form-group">
                       <label className="ca-label">开始时间</label>
                       <input className="ca-input" type="date" value={exp.startDate}
-                        onChange={(e) => { const u = [...experiences]; u[index] = { ...exp, startDate: e.target.value }; setExperiences(u); }} />
+                        onChange={(e) => { const u = [...experiences]; u[index] = { ...exp, startDate: e.target.value }; setExperiences(u); setDirty(true); }} />
                     </div>
                     <div className="ca-form-group">
                       <label className="ca-label">结束时间</label>
                       <input className="ca-input" type="date" value={exp.endDate}
-                        onChange={(e) => { const u = [...experiences]; u[index] = { ...exp, endDate: e.target.value }; setExperiences(u); }} />
+                        onChange={(e) => { const u = [...experiences]; u[index] = { ...exp, endDate: e.target.value }; setExperiences(u); setDirty(true); }} />
                     </div>
                   </div>
                   <div className="ca-form-group">
                     <label className="ca-label">核心描述</label>
                     <textarea className="ca-input ca-textarea" value={exp.description}
-                      onChange={(e) => { const u = [...experiences]; u[index] = { ...exp, description: e.target.value }; setExperiences(u); }}
+                      onChange={(e) => { const u = [...experiences]; u[index] = { ...exp, description: e.target.value }; setExperiences(u); setDirty(true); }}
                       placeholder="简要描述您在该经历中的角色和贡献" />
                   </div>
                   <div className="ca-form-group">
                     <label className="ca-label">核心要点（每行一条）</label>
                     <textarea className="ca-input ca-textarea" value={exp.bullets.join('\n')}
-                      onChange={(e) => { const u = [...experiences]; u[index] = { ...exp, bullets: e.target.value.split('\n') }; setExperiences(u); }}
+                      onChange={(e) => { const u = [...experiences]; u[index] = { ...exp, bullets: e.target.value.split('\n') }; setExperiences(u); setDirty(true); }}
                       placeholder="• 负责 XXX 产品的需求分析与原型设计&#10;• 实现了 XXX 功能，提升 XX% 用户留存" />
                   </div>
                   <button className="ca-btn ca-btn-primary" onClick={() => saveExperience(exp)} style={{ marginTop: '12px' }}>
@@ -636,6 +651,7 @@ export default function Options() {
                   createdAt: new Date().toISOString(),
                 };
                 setAIConfigs([...aiConfigs, newConfig]);
+                setDirty(true);
               }}>
                 ➕ 添加模型
               </button>
@@ -666,59 +682,43 @@ export default function Options() {
                     <div className="ca-form-group">
                       <label className="ca-label">配置名称</label>
                       <input className="ca-input" value={config.name}
-                        onChange={(e) => { const u = [...aiConfigs]; u[index] = { ...config, name: e.target.value }; setAIConfigs(u); }} />
+                        onChange={(e) => { const u = [...aiConfigs]; u[index] = { ...config, name: e.target.value }; setAIConfigs(u); setDirty(true); }} />
                     </div>
                     <div className="ca-form-group">
                       <label className="ca-label">模型提供商</label>
                       <select className="ca-input ca-select" value={config.provider}
                         onChange={(e) => {
                           const provider = e.target.value as AIModelConfig['provider'];
-                          const defaultModels: Record<string, string> = {
-                            openai: 'gpt-4o-mini',
-                            claude: 'claude-3-5-sonnet-20241022',
-                            deepseek: 'deepseek-chat',
-                            minimax: 'MiniMax-Text-01',
-                            zhipu: 'glm-4-flash',
-                            moonshot: 'moonshot-v1-8k',
-                            qianwen: 'qwen-turbo',
-                            doubao: 'doubao-pro-4k',
-                            baichuan: 'Baichuan4',
-                            ollama: 'llama3',
-                            custom: '',
-                          };
                           const u = [...aiConfigs];
-                          u[index] = { ...config, provider, model: defaultModels[provider] || config.model };
+                          u[index] = {
+                            ...config,
+                            provider,
+                            model: findProvider(provider)?.defaultModel || config.model,
+                          };
                           setAIConfigs(u);
+                          setDirty(true);
                         }}>
-                        <option value="openai">OpenAI</option>
-                        <option value="claude">Anthropic Claude</option>
-                        <option value="deepseek">DeepSeek 深度求索</option>
-                        <option value="minimax">MiniMax</option>
-                        <option value="zhipu">智谱 GLM</option>
-                        <option value="moonshot">月之暗面 Kimi</option>
-                        <option value="qianwen">阿里通义千问</option>
-                        <option value="doubao">字节跳动豆包</option>
-                        <option value="baichuan">百川智能</option>
-                        <option value="ollama">Ollama（本地）</option>
-                        <option value="custom">自定义（兼容 OpenAI 格式）</option>
+                        {PROVIDERS.map((p) => (
+                          <option key={p.id} value={p.id}>{p.label}</option>
+                        ))}
                       </select>
                     </div>
                     <div className="ca-form-group">
                       <label className="ca-label">模型名称</label>
                       <input className="ca-input" value={config.model}
-                        onChange={(e) => { const u = [...aiConfigs]; u[index] = { ...config, model: e.target.value }; setAIConfigs(u); }}
+                        onChange={(e) => { const u = [...aiConfigs]; u[index] = { ...config, model: e.target.value }; setAIConfigs(u); setDirty(true); }}
                         placeholder="如：gpt-4o-mini" />
                     </div>
                     <div className="ca-form-group">
                       <label className="ca-label">API Key</label>
                       <input className="ca-input" type="password" value={config.apiKey || ''}
-                        onChange={(e) => { const u = [...aiConfigs]; u[index] = { ...config, apiKey: e.target.value }; setAIConfigs(u); }}
+                        onChange={(e) => { const u = [...aiConfigs]; u[index] = { ...config, apiKey: e.target.value }; setAIConfigs(u); setDirty(true); }}
                         placeholder="仅存储在本地" />
                     </div>
                     <div className="ca-form-group">
                       <label className="ca-label">API Base URL（可选）</label>
                       <input className="ca-input" value={config.baseUrl || ''}
-                        onChange={(e) => { const u = [...aiConfigs]; u[index] = { ...config, baseUrl: e.target.value }; setAIConfigs(u); }}
+                        onChange={(e) => { const u = [...aiConfigs]; u[index] = { ...config, baseUrl: e.target.value }; setAIConfigs(u); setDirty(true); }}
                         placeholder="如自定义代理地址" />
                     </div>
                   </div>
