@@ -75,6 +75,15 @@ const cases: Case[] = [
   { name: '现居住地', field: f('现居住地'), expectPath: 'personalInfo.currentCity' },
   { name: '民族', field: f('民族'), expectPath: 'personalInfo.ethnicity' },
   { name: '毕业时间', field: f('毕业时间', { sectionContext: '个人信息' }), expectPath: 'education.endDate' },
+
+  // ---- 长关键词被短词+分区加权压过的回归 ----
+  // 标签「专业技能」同时命中 skills 的「专业技能」(完整) 和 education.major 的「专业」(前缀)。
+  // 旧评分里「专业」吃到教育分区 1.35 倍加权后反而胜出，技能组被填成专业。
+  { name: '专业技能（分区含「专业」时仍须命中 skills）', field: f('专业技能', { sectionContext: '个人技能' }), expectPath: 'skills' },
+  { name: '专业技能（教育分区下也不得被专业吃掉）', field: f('专业技能', { sectionContext: '教育经历' }), expectPath: 'skills' },
+  { name: '个人技能', field: f('个人技能'), expectPath: 'skills' },
+  { name: '技能特长', field: f('技能特长', { sectionContext: '技能证书' }), expectPath: 'skills' },
+  { name: '核心技能', field: f('核心技能'), expectPath: 'skills' },
 ];
 
 // ---- 单选/下拉选项匹配 ----

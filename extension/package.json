@@ -8,6 +8,7 @@
     "dev": "vite build --watch",
     "build": "tsc && vite build",
     "check:matching": "esbuild scripts/check-matching.ts --bundle --platform=node --format=esm --outfile=node_modules/.cache/check-matching.mjs --log-level=error && node node_modules/.cache/check-matching.mjs",
+    "check:testpage": "esbuild scripts/check-testpage.ts --bundle --platform=node --format=esm --outfile=node_modules/.cache/check-testpage.mjs --log-level=error && node node_modules/.cache/check-testpage.mjs",
     "preview": "vite preview"
   },
   "dependencies": {

@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CampusApply Agent — 本地测试表单</title>
+<style>
+  :root {
+    --border: #d9d9d9;
+    --bg: #f5f6f8;
+    --card: #fff;
+    --text: #1f2328;
+    --muted: #6b7280;
+    --primary: #1677ff;
+    --ok: #16a34a;
+    --warn: #d97706;
+    --err: #dc2626;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 24px;
+    font: 14px/1.6 -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif;
+    color: var(--text); background: var(--bg);
+  }
+  .wrap { max-width: 1080px; margin: 0 auto; }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  .sub { color: var(--muted); margin-bottom: 20px; }
+  section {
+    background: var(--card); border: 1px solid var(--border); border-radius: 10px;
+    padding: 20px 22px; margin-bottom: 18px;
+  }
+  section > h2 {
+    font-size: 15px; margin: 0 0 14px; padding-bottom: 10px;
+    border-bottom: 1px solid #eef0f2; display: flex; align-items: center; gap: 8px;
+  }
+  section > h2 .tag {
+    font-size: 11px; font-weight: 400; color: var(--muted);
+    background: #f1f3f5; border-radius: 4px; padding: 1px 7px;
+  }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px 20px; }
+  .item { display: flex; flex-direction: column; gap: 5px; }
+  .item > label, .item > .lbl { font-size: 13px; color: #374151; }
+  .req::after { content: " *"; color: var(--err); }
+  input[type=text], input[type=email], input[type=tel], input[type=date],
+  input[type=month], select, textarea {
+    width: 100%; padding: 6px 10px; border: 1px solid var(--border);
+    border-radius: 6px; font: inherit; background: #fff; color: inherit;
+  }
+  textarea { min-height: 76px; resize: vertical; }
+  input:focus, select:focus, textarea:focus { outline: none; border-color: var(--primary); }
+  .row { display: flex; flex-wrap: wrap; gap: 16px; align-items: center; }
+  .row label { display: inline-flex; align-items: center; gap: 5px; font-size: 13px; }
+  .hint { color: var(--muted); font-size: 12px; margin-top: 6px; }
+
+  /* ===== 模拟 antd ===== */
+  .ant-form-item { display: flex; flex-direction: column; gap: 5px; }
+  .ant-form-item-label label { font-size: 13px; color: #374151; }
+  .ant-input, .ant-select-selection-search-input {
+    width: 100%; padding: 6px 10px; border: 1px solid var(--border);
+    border-radius: 6px; font: inherit; background: #fff;
+  }
+  .ant-select { position: relative; }
+  .ant-select-selection-search-input { cursor: pointer; }
+  .ant-radio-group { display: flex; gap: 18px; }
+  .ant-picker input { cursor: pointer; }
+
+  /* ===== 模拟 Element ===== */
+  .el-form-item { display: flex; flex-direction: column; gap: 5px; }
+  .el-form-item__label { font-size: 13px; color: #374151; }
+  .el-input__inner {
+    width: 100%; padding: 6px 10px; border: 1px solid var(--border);
+    border-radius: 6px; font: inherit; background: #fff;
+  }
+
+  /* ===== 自定义下拉面板（默认折叠，点击展开） ===== */
+  .ca-popup {
+    display: none; position: absolute; z-index: 20; top: calc(100% + 4px); left: 0;
+    min-width: 100%; background: #fff; border: 1px solid var(--border);
+    border-radius: 6px; box-shadow: 0 6px 20px rgba(0,0,0,.12);
+    max-height: 220px; overflow: auto;
+  }
+  .ca-popup.open { display: block; }
+  .ca-option { padding: 6px 12px; cursor: pointer; }
+  .ca-option:hover { background: #f0f6ff; }
+  .ca-option[aria-selected="true"] { background: #e6f0ff; color: var(--primary); }
+
+  /* ===== 对照结果表 ===== */
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid #eef0f2; vertical-align: top; }
+  th { color: var(--muted); font-weight: 500; }
+  code { background: #f1f3f5; border-radius: 4px; padding: 1px 5px; font-size: 12px; }
+  .pill { border-radius: 10px; padding: 1px 8px; font-size: 12px; }
+  .pill.ok { background: #e7f7ed; color: var(--ok); }
+  .pill.no { background: #fdeaea; color: var(--err); }
+  .pill.soft { background: #fff5e6; color: var(--warn); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>CampusApply Agent — 本地测试表单</h1>
+  <p class="sub">
+    本页用于离线验证「扫描 → 匹配 → 填充」全链路，无需登录任何招聘网站。
+    字段标签刻意采用校招网申的真实措辞，覆盖原生控件 / antd / Element / ARIA 自定义组件四类 DOM 结构。
+  </p>
+
+  <!-- ==================== 1. 原生控件 ==================== -->
+  <section>
+    <h2>一、原生控件（native）<span class="tag">input / select / textarea / radio</span></h2>
+    <div class="grid">
+      <div class="item">
+        <label class="req" for="f-name">姓名</label>
+        <input type="text" id="f-name" name="realname" placeholder="请输入姓名" maxlength="20">
+      </div>
+      <div class="item">
+        <label for="f-name-en">英文姓名</label>
+        <input type="text" id="f-name-en" name="nameEn" placeholder="Name in English">
+      </div>
+      <div class="item">
+        <label class="req" for="f-phone">手机号码</label>
+        <input type="tel" id="f-phone" name="mobile" placeholder="请输入手机号" maxlength="11">
+      </div>
+      <div class="item">
+        <label class="req" for="f-email">电子邮箱</label>
+        <input type="email" id="f-email" name="email" placeholder="请输入邮箱">
+      </div>
+      <div class="item">
+        <label for="f-idcard">身份证号</label>
+        <input type="text" id="f-idcard" name="idcard" maxlength="18">
+      </div>
+      <div class="item">
+        <label for="f-birth">出生日期</label>
+        <input type="date" id="f-birth" name="birthday">
+      </div>
+      <div class="item">
+        <label for="f-ethnicity">民族</label>
+        <input type="text" id="f-ethnicity" name="ethnicity">
+      </div>
+      <div class="item">
+        <label for="f-political">政治面貌</label>
+        <select id="f-political" name="political">
+          <option value="">请选择</option>
+          <option>中共党员</option>
+          <option>中共预备党员</option>
+          <option>共青团员</option>
+          <option>群众</option>
+          <option>民主党派</option>
+        </select>
+      </div>
+      <div class="item">
+        <label for="f-native-place">籍贯</label>
+        <input type="text" id="f-native-place" name="nativePlace">
+      </div>
+      <div class="item">
+        <label for="f-city">现居城市</label>
+        <input type="text" id="f-city" name="city">
+      </div>
+      <div class="item">
+        <label for="f-wechat">微信号</label>
+        <input type="text" id="f-wechat" name="wechat">
+      </div>
+      <div class="item">
+        <label for="f-github">GitHub 链接</label>
+        <input type="text" id="f-github" name="github">
+      </div>
+    </div>
+
+    <div class="grid" style="margin-top:16px">
+      <div class="item">
+        <span class="lbl req">性别</span>
+        <div class="row" role="radiogroup" aria-label="性别">
+          <label><input type="radio" name="gender" value="男"> 男</label>
+          <label><input type="radio" name="gender" value="女"> 女</label>
+          <label><input type="radio" name="gender" value="其他"> 其他</label>
+        </div>
+      </div>
+      <div class="item">
+        <span class="lbl">是否接受调剂</span>
+        <div class="row">
+          <label><input type="radio" name="acceptAdjust" value="是"> 是</label>
+          <label><input type="radio" name="acceptAdjust" value="否"> 否</label>
+        </div>
+      </div>
+      <div class="item">
+        <span class="lbl">专业技能</span>
+        <div class="row">
+          <label><input type="checkbox" name="skills" value="JavaScript"> JavaScript</label>
+          <label><input type="checkbox" name="skills" value="TypeScript"> TypeScript</label>
+          <label><input type="checkbox" name="skills" value="React"> React</label>
+          <label><input type="checkbox" name="skills" value="Node.js"> Node.js</label>
+        </div>
+        <span class="hint">
+          回归用例：该标签同时命中技能规则「专业技能」与专业规则「专业」，
+          之前会被教育分区加权顶掉，现由关键词覆盖率加成修正。
+        </span>
+      </div>
+      <div class="item">
+        <span class="lbl">已阅读并同意《隐私政策》</span>
+        <div class="row">
+          <label><input type="checkbox" id="f-agree" name="agree"> 同意</label>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid" style="margin-top:16px">
+      <div class="item">
+        <label for="f-self">自我评价</label>
+        <textarea id="f-self" name="selfIntro" maxlength="200" placeholder="请简要介绍自己"></textarea>
+      </div>
+      <div class="item">
+        <label for="f-truncate">兴趣特长（限 8 字，用于验证超长截断）</label>
+        <input type="text" id="f-truncate" name="hobbies" maxlength="8">
+        <span class="hint">数据源远超 8 字时，应只写入前 8 个字符而不是被浏览器丢弃。</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================== 2. antd 风格 ==================== -->
+  <section>
+    <h2>二、Ant Design 风格<span class="tag">.ant-form-item / .ant-select / .ant-picker</span></h2>
+    <div class="grid">
+      <div class="ant-form-item">
+        <div class="ant-form-item-label"><label class="req">毕业院校</label></div>
+        <input type="text" class="ant-input" name="school" placeholder="请输入学校名称">
+      </div>
+      <div class="ant-form-item">
+        <div class="ant-form-item-label"><label>所在学院</label></div>
+        <input type="text" class="ant-input" name="college" placeholder="请输入学院">
+      </div>
+      <div class="ant-form-item">
+        <div class="ant-form-item-label"><label class="req">所学专业</label></div>
+        <input type="text" class="ant-input" name="major" placeholder="请输入专业">
+      </div>
+      <div class="ant-form-item">
+        <div class="ant-form-item-label"><label class="req">最高学历</label></div>
+        <div class="ant-select" data-ca-test="custom-select">
+          <input type="text" class="ant-select-selection-search-input" role="combobox"
+                 readonly aria-haspopup="listbox" aria-expanded="false" placeholder="请选择学历">
+          <div class="ca-popup" role="listbox">
+            <div class="ca-option" role="option">大专</div>
+            <div class="ca-option" role="option">本科</div>
+            <div class="ca-option" role="option">硕士</div>
+            <div class="ca-option" role="option">博士</div>
+          </div>
+        </div>
+      </div>
+      <div class="ant-form-item">
+        <div class="ant-form-item-label"><label>GPA</label></div>
+        <input type="text" class="ant-input" name="gpa" placeholder="如 3.8">
+      </div>
+      <div class="ant-form-item">
+        <div class="ant-form-item-label"><label>专业排名</label></div>
+        <input type="text" class="ant-input" name="ranking" placeholder="如 5/120">
+      </div>
+      <div class="ant-form-item">
+        <div class="ant-form-item-label"><label>英语四级</label></div>
+        <input type="text" class="ant-input" name="cet4">
+      </div>
+      <div class="ant-form-item">
+        <div class="ant-form-item-label"><label>英语六级</label></div>
+        <input type="text" class="ant-input" name="cet6">
+      </div>
+      <div class="ant-form-item">
+        <div class="ant-form-item-label"><label>入学时间</label></div>
+        <div class="ant-picker">
+          <input type="text" readonly placeholder="YYYY-MM-DD">
+        </div>
+      </div>
+      <div class="ant-form-item">
+        <div class="ant-form-item-label"><label>毕业时间</label></div>
+        <div class="ant-picker">
+          <input type="text" readonly placeholder="YYYY-MM-DD">
+        </div>
+      </div>
+      <div class="ant-form-item">
+        <div class="ant-form-item-label"><label>培养方式</label></div>
+        <select name="trainingMode">
+          <option value="">请选择</option>
+          <option>全日制</option>
+          <option>非全日制</option>
+        </select>
+      </div>
+      <div class="ant-form-item">
+        <div class="ant-form-item-label"><label>主修课程</label></div>
+        <input type="text" class="ant-input" name="mainCourses">
+      </div>
+    </div>
+    <div class="ant-form-item" style="margin-top:14px">
+      <div class="ant-form-item-label"><label>在校获奖情况</label></div>
+      <textarea class="ant-input" name="awards" rows="3"></textarea>
+    </div>
+  </section>
+
+  <!-- ==================== 3. Element 风格 ==================== -->
+  <section>
+    <h2>三、Element UI 风格<span class="tag">.el-form-item / .el-select</span></h2>
+    <div class="grid">
+      <div class="el-form-item">
+        <div class="el-form-item__label">公司名称</div>
+        <input type="text" class="el-input__inner" name="company">
+      </div>
+      <div class="el-form-item">
+        <div class="el-form-item__label">实习岗位</div>
+        <input type="text" class="el-input__inner" name="position">
+      </div>
+      <div class="el-form-item">
+        <div class="el-form-item__label">工作地点</div>
+        <input type="text" class="el-input__inner" name="workLocation">
+      </div>
+      <div class="el-form-item">
+        <div class="el-form-item__label">实习开始时间</div>
+        <input type="text" class="el-input__inner" name="startDate" placeholder="YYYY-MM">
+      </div>
+      <div class="el-form-item">
+        <div class="el-form-item__label">实习结束时间</div>
+        <input type="text" class="el-input__inner" name="endDate" placeholder="YYYY-MM">
+      </div>
+    </div>
+    <div class="el-form-item" style="margin-top:14px">
+      <div class="el-form-item__label">工作内容</div>
+      <textarea class="el-input__inner" name="description" rows="3"></textarea>
+    </div>
+    <div class="el-form-item" style="margin-top:14px">
+      <div class="el-form-item__label">工作成果</div>
+      <textarea class="el-input__inner" name="achievements" rows="3"></textarea>
+    </div>
+  </section>
+
+  <!-- ==================== 4. 项目经历 + 求职意向 ==================== -->
+  <section>
+    <h2>四、项目经历与求职意向<span class="tag">分区上下文消歧</span></h2>
+    <div class="grid">
+      <div class="item">
+        <label for="p-name">项目名称</label>
+        <input type="text" id="p-name" name="projectName">
+      </div>
+      <div class="item">
+        <label for="p-role">项目角色</label>
+        <input type="text" id="p-role" name="projectRole">
+      </div>
+      <div class="item">
+        <label for="p-start">项目开始时间</label>
+        <input type="text" id="p-start" name="projectStart" placeholder="YYYY-MM">
+      </div>
+      <div class="item">
+        <label for="p-end">项目结束时间</label>
+        <input type="text" id="p-end" name="projectEnd" placeholder="YYYY-MM">
+      </div>
+      <div class="item">
+        <label for="p-stack">技术栈</label>
+        <input type="text" id="p-stack" name="techStack">
+      </div>
+      <div class="item">
+        <label for="i-city">期望工作城市</label>
+        <input type="text" id="i-city" name="desiredCity">
+      </div>
+      <div class="item">
+        <label for="i-pos">期望岗位</label>
+        <input type="text" id="i-pos" name="desiredPosition">
+      </div>
+      <div class="item">
+        <label for="i-salary">期望月薪</label>
+        <input type="text" id="i-salary" name="expectedMonthlySalary" placeholder="如 15K-25K">
+      </div>
+      <div class="item">
+        <label for="i-available">到岗时间</label>
+        <input type="text" id="i-available" name="availableDate" placeholder="YYYY-MM-DD">
+      </div>
+      <div class="item">
+        <label for="i-channel">招聘渠道来源</label>
+        <select id="i-channel" name="channel">
+          <option value="">请选择</option>
+          <option>校园宣讲会</option>
+          <option>官方招聘网站</option>
+          <option>BOSS直聘</option>
+          <option>牛客网</option>
+          <option>内部推荐</option>
+        </select>
+      </div>
+      <div class="item">
+        <label for="i-industry">期望从事行业</label>
+        <input type="text" id="i-industry" name="expectedIndustry">
+      </div>
+      <div class="item">
+        <label for="i-plan">职业规划</label>
+        <textarea id="i-plan" name="careerPlan" rows="3"></textarea>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================== 5. 干扰项 ==================== -->
+  <section>
+    <h2>五、干扰项（应被扫描器忽略）<span class="tag">捕获 EXCLUDE_REGION / search / captcha 过滤</span></h2>
+    <p class="hint">
+      本区字段全部位于 <code>&lt;nav&gt;</code> 内，或 name/id/class 命中
+      <code>search</code> / <code>captcha</code> / <code>verify</code> 过滤规则，或类型为 hidden/file/password/submit，
+      扫描结果中的字段总数不应包含它们。
+    </p>
+    <nav style="padding:14px;border:1px dashed var(--border);border-radius:8px;margin-top:10px">
+      <input type="text" name="searchKeyword" placeholder="导航栏搜索框（EXCLUDE_REGION）">
+      <input type="text" name="search-input" placeholder="含 search 的 name（应被忽略）">
+      <input type="text" id="captchaInput" placeholder="图形验证码（应被忽略）">
+      <input type="hidden" name="name" value="hidden-姓名（不应被填）">
+      <input type="password" name="email" placeholder="密码框（应被忽略）">
+      <input type="file" name="resume">
+      <input type="submit" value="提交">
+    </nav>
+    <div style="margin-top:10px">
+      <input type="text" class="verify-code-input" placeholder="verify 关键字（应被忽略）">
+    </div>
+  </section>
+
+  <!-- ==================== 6. 对照表 ==================== -->
+  <section>
+    <h2>六、期望匹配对照表<span class="tag">人工核对填充结果</span></h2>
+    <table>
+      <thead><tr><th>字段标签</th><th>控件类型</th><th>期望数据来源</th></tr></thead>
+      <tbody id="expect-body"></tbody>
+    </table>
+    <p class="hint">
+      「期望数据来源」为 <code>matchingEngine</code> 中的 <code>dataPath</code>。
+      点侧边栏「扫描」后逐个比对，或在控制台查看 <code>[CampusApply]</code> 日志。
+    </p>
+  </section>
+</div>
+
+<script>
+/* ============ 自定义下拉：点击展开 / 选择 ============ */
+document.querySelectorAll('.ant-select').forEach(function (sel) {
+  var input = sel.querySelector('input');
+  var popup = sel.querySelector('.ca-popup');
+  if (!input || !popup) return;
+
+  function open() {
+    popup.classList.add('open');
+    input.setAttribute('aria-expanded', 'true');
+  }
+  function close() {
+    popup.classList.remove('open');
+    input.setAttribute('aria-expanded', 'false');
+  }
+
+  input.addEventListener('click', function () {
+    popup.classList.contains('open') ? close() : open();
+  });
+
+  popup.querySelectorAll('.ca-option').forEach(function (opt) {
+    opt.addEventListener('click', function () {
+      popup.querySelectorAll('.ca-option').forEach(function (o) {
+        o.setAttribute('aria-selected', 'false');
+      });
+      opt.setAttribute('aria-selected', 'true');
+      input.value = opt.textContent.trim();
+      // 与真实框架一致：派发 input/change，便于外部观察
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+      input.dispatchEvent(new Event('change', { bubbles: true }));
+      close();
+    });
+  });
+
+  document.addEventListener('click', function (e) {
+    if (!sel.contains(e.target)) close();
+  });
+});
+
+/* ============ 对照表渲染 ============ */
+var EXPECT = [
+  ['姓名', 'input', 'personalInfo.name'],
+  ['英文姓名', 'input', 'personalInfo.nameEn'],
+  ['手机号码', 'input', 'personalInfo.phone'],
+  ['电子邮箱', 'input', 'personalInfo.email'],
+  ['身份证号', 'input', 'personalInfo.idNumber'],
+  ['出生日期', 'input[type=date]', 'personalInfo.birthDate'],
+  ['民族', 'input', 'personalInfo.ethnicity'],
+  ['政治面貌', 'select', 'personalInfo.politicalStatus'],
+  ['籍贯', 'input', 'personalInfo.nativePlace'],
+  ['现居城市', 'input', 'personalInfo.currentCity'],
+  ['微信号', 'input', 'personalInfo.wechat'],
+  ['GitHub 链接', 'input', 'personalInfo.github'],
+  ['性别', 'radio-group', 'personalInfo.gender'],
+  ['是否接受调剂', 'radio-group', 'personalInfo.acceptsAdjustment'],
+  ['专业技能', 'checkbox-group', 'skills'],
+  ['自我评价', 'textarea', 'special.selfIntroduction → LLM'],
+  ['兴趣特长', 'input[maxlength=8]', 'special.hobbies（验证截断）'],
+  ['毕业院校', 'antd input', 'education.school'],
+  ['所在学院', 'antd input', 'education.college'],
+  ['所学专业', 'antd input', 'education.major'],
+  ['最高学历', 'custom-select', 'education.type'],
+  ['GPA', 'antd input', 'education.gpa'],
+  ['专业排名', 'antd input', 'education.ranking'],
+  ['英语四级', 'antd input', 'education.cet4'],
+  ['英语六级', 'antd input', 'education.cet6'],
+  ['入学时间', 'custom-date', 'education.startDate'],
+  ['毕业时间', 'custom-date', 'education.endDate'],
+  ['培养方式', 'select', 'education.trainingMode'],
+  ['主修课程', 'antd input', 'education.mainCourses'],
+  ['在校获奖情况', 'antd textarea', 'education.awards'],
+  ['公司名称', 'element input', 'experience.organization'],
+  ['实习岗位', 'element input', 'experience.role'],
+  ['工作地点', 'element input', 'experience.location'],
+  ['实习开始时间', 'element input', 'experience.startDate'],
+  ['实习结束时间', 'element input', 'experience.endDate'],
+  ['工作内容', 'element textarea', 'experience.description'],
+  ['工作成果', 'element textarea', 'experience.achievements'],
+  ['项目名称', 'input', 'experience.organization（项目区）'],
+  ['项目角色', 'input', 'experience.role（项目区）'],
+  ['项目开始时间', 'input', 'experience.startDate（项目区）'],
+  ['项目结束时间', 'input', 'experience.endDate（项目区）'],
+  ['技术栈', 'input', 'experience.techStack'],
+  ['期望工作城市', 'input', 'personalInfo.targetCities'],
+  ['期望岗位', 'input', 'personalInfo.targetPositions'],
+  ['期望月薪', 'input', 'personalInfo.expectedMonthlySalary'],
+  ['到岗时间', 'input', 'personalInfo.availableDate'],
+  ['招聘渠道来源', 'select', 'personalInfo.recruitmentChannel'],
+  ['期望从事行业', 'input', 'personalInfo.expectedIndustry'],
+  ['职业规划', 'textarea', 'special.careerPlan → LLM']
+];
+
+document.getElementById('expect-body').innerHTML = EXPECT.map(function (r) {
+  return '<tr><td>' + r[0] + '</td><td><code>' + r[1] + '</code></td><td><code>' + r[2] + '</code></td></tr>';
+}).join('');
+
+/* ============ 便捷按钮 ============ */
+console.log('%c[CampusApply 测试页] 已就绪', 'color:#1677ff;font-weight:bold');
+</script>
+</body>
+</html>

@@ -166,8 +166,36 @@ function detectSectionCategory(section?: string): FieldMappingRule['category'] |
 function sectionMultiplier(ruleCategory: FieldMappingRule['category'], sectionCategory: FieldMappingRule['category'] | null): number {
   if (!sectionCategory) return 1;
   if (ruleCategory === sectionCategory) return 1.35;
-  if (ruleCategory === 'other' || ruleCategory === 'skill') return 1;
+  if (ruleCategory === 'other') return 1;
+  // 技能/证书类天然横跨各分区（专业技能、语言能力、技能证书…），
+  // 拿到别人分区里也应当平权，否则会被同分区高频规则（如教育区的「专业」）吃掉
+  if (ruleCategory === 'skill') return 1.35;
   return 0.6;
+}
+
+/**
+ * 关键词覆盖率加成。
+ *
+ * 背景：关键词匹配分是「短词在长标签里被稀释」的（0.55~1.0 随长度比下降），
+ * 于是标签「专业技能」命中短词「专业」得 0.775（还能吃到教育分区 1.35 倍加权），
+ * 反而压过完整命中「专业技能」的 1.0 —— 结果技能组被填成专业。
+ *
+ * 长度比在标签本身就很长时惩罚过重（「熟练掌握的技能」命中「技能」只有 0.67），
+ * 所以这里给「关键词几乎覆盖整个标签、并延伸到标签边界」的情况补回权重：
+ * 只有关键词贴近标签长度（lenDiff ≤ 2）时才给加成，且加成上限 1.15，
+ * 保证它只能翻越「因长度稀释而失去的那部分分数」，不会翻越分区上下文消歧。
+ * 例：标签「姓名」命中「名称」lenDiff=1 → 加成后仍低于完整命中「姓名」，
+ * 不会改变既有的消歧行为。
+ */
+function keywordCoverageBonus(keyword: string, text: string): number {
+  const kw = keyword.toLowerCase().trim();
+  const txt = text.toLowerCase().trim();
+  if (!kw || !txt || !txt.includes(kw)) return 1;
+
+  const lenDiff = txt.length - kw.length;
+  if (lenDiff > 2) return 1;
+
+  return 1 + 0.15 * (1 - lenDiff / 3);
 }
 
 // =================== 第一级：规则匹配 ===================
@@ -186,7 +214,9 @@ function tryRuleMatch(field: FormField, userData: UserDataContext): MatchResult 
     for (const keyword of rule.keywords) {
       for (const source of sources) {
         const score = keywordMatches(keyword, source.text) * source.weight;
-        if (score > matchScore) matchScore = score;
+        if (score <= 0) continue;
+        const boosted = score * keywordCoverageBonus(keyword, source.text);
+        if (boosted > matchScore) matchScore = boosted;
       }
     }
 
